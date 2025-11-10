@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dress Code Scanner - Sign Up</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body 
+  class="bg-[url('/images/schoolbg.jpg')] bg-cover bg-center min-h-screen flex flex-col items-center justify-center px-4 relative">
+
+  <!-- Overlay -->
+  <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+
+  <!-- Logo -->
+  <div class="relative mb-8 z-10">
+    <img 
+      src="/images/bantay-sinina-logo-nobg.png" 
+      alt="Bantay Sinina Logo" 
+      class="w-56 h-auto object-contain"
+    >
+  </div>
+
+  <!-- Transparent White Sign Up Box -->
+  <div class="relative z-10 bg-white backdrop-blur-md rounded-2xl shadow-2xl p-10 w-full max-w-lg">
+    <!-- Header -->
+    <div class="text-center mb-10">
+      <i class="fas fa-user-plus text-5xl text-[#1A1851] mb-4"></i>
+      <h1 class="text-4xl font-extrabold text-[#FCB315]">Dress Code Scanner</h1>
+      <p class="text-lg text-[#1A1851] mt-3">Create your account</p>
+    </div>
+
+    <!-- Sign Up Form -->
+    <form id="signupForm" class="space-y-6">
+      <div>
+        <label for="username" class="block text-lg font-semibold text-[#1A1851] mb-2">Username</label>
+        <input type="text" id="username" name="username" required
+          class="w-full text-lg px-4 py-3 border border-gray-400 rounded-md bg-transparent text-[#1A1851] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FCB315] focus:border-transparent">
+      </div>
+
+      <div>
+        <label for="email" class="block text-lg font-semibold text-[#1A1851] mb-2">Email</label>
+        <input type="email" id="email" name="email" required
+          class="w-full text-lg px-4 py-3 border border-gray-400 rounded-md bg-transparent text-[#1A1851] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FCB315] focus:border-transparent">
+      </div>
+
+      <div>
+        <label for="password" class="block text-lg font-semibold text-[#1A1851] mb-2">Password</label>
+        <input type="password" id="password" name="password" required
+          class="w-full text-lg px-4 py-3 border border-gray-400 rounded-md bg-transparent text-[#1A1851] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FCB315] focus:border-transparent">
+      </div>
+
+      <div>
+        <label for="role" class="block text-lg font-semibold text-[#1A1851] mb-2">Role</label>
+        <select id="role" name="role" required
+          class="w-full text-lg px-4 py-3 border border-gray-400 rounded-md bg-transparent text-[#1A1851] focus:outline-none focus:ring-2 focus:ring-[#FCB315] focus:border-transparent">
+          <option value="">Select your role</option>
+          <option value="osa">OSA (Office of Student Affairs)</option>
+          <option value="security">Security Personnel</option>
+        </select>
+      </div>
+
+      <button type="submit" id="signupBtn"
+        class="w-full bg-[#1A1851] text-[#FCB315] py-3 px-4 rounded-md text-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-[#FCB315] focus:ring-offset-2 transition duration-200">
+        <span id="signupBtnText">Sign Up</span>
+        <i id="signupSpinner" class="fas fa-spinner fa-spin hidden ml-2"></i>
+      </button>
+    </form>
+
+    <!-- Login Link -->
+    <div class="mt-8 text-center text-lg">
+      <p class="text-[#1A1851]">Already have an account?
+        <a href="/" class="text-[#FCB315] hover:underline font-semibold">Login</a>
+      </p>
+    </div>
+
+    <!-- Error Message -->
+    <div id="errorMessage" class="hidden mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+    </div>
+
+    <!-- Success Message -->
+    <div id="successMessage" class="hidden mt-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+</body>
+</html>
