@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { validatePasswordComplexity } = require('../utils/passwordValidator');
 require('dotenv').config();
 
 const router = express.Router();
@@ -16,6 +17,15 @@ router.post('/register', async (req, res) => {
     // Validate input
     if (!username || !email || !password || !role) {
       return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    // Validate password complexity
+    const passwordValidation = validatePasswordComplexity(password);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({ 
+        error: 'Password does not meet complexity requirements',
+        details: passwordValidation.errors
+      });
     }
 
     // Check if user already exists
@@ -85,6 +95,10 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Check password complexity and warn if weak (but allow login)
+    const passwordValidation = validatePasswordComplexity(password);
+    const hasWeakPassword = !passwordValidation.isValid;
+
     user.lastLogin = new Date();
     await user.save();
 
@@ -96,7 +110,7 @@ router.post('/login', async (req, res) => {
 
     console.log(`✅ ${user.role} "${user.username}" logged in successfully.`);
 
-    res.json({
+    const response = {
       message: 'Login successful',
       token,
       user: {
@@ -105,7 +119,15 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role
       }
-    });
+    };
+
+    // Warn if password is weak but don't block login
+    if (hasWeakPassword) {
+      response.warning = 'Your password does not meet current security requirements. Please update it soon.';
+      response.passwordRequirements = passwordValidation.errors;
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });

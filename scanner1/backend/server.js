@@ -3,52 +3,51 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
+const multer = require('multer');
+const fs = require('fs');
 require('dotenv').config();
 
-// Import database connections
+// Database
 const { connectDB, getQrScannerDB } = require('./config/database');
 
-// Import routes
+// Services
+const { initializeGoogleDrive } = require('./services/googleDriveService');
+
+// Routes
 const authRoutes = require('./routes/auth');
 const violationRoutes = require('./routes/violations');
 const dashboardRoutes = require('./routes/dashboard');
-const reportRoutes = require('./routes/reports'); // reports from qr_scanner_db
+const reportRoutes = require('./routes/reports');
 const superuserRoutes = require('./routes/superuser');
-
-
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
-
+const io = socketIo(server, { cors: { origin: "*", methods: ["GET","POST"] } });
+app.set('io', io);
 const PORT = process.env.PORT || 3000;
 
-// Initialize database and models
+// Initialize DB
 async function initializeApp() {
   try {
-    // Connect to dress_code_scanner DB
     await connectDB();
-
-    // Connect to qr_scanner_db (for reports)
     await getQrScannerDB();
-
-    // Import models after DB connections
     const User = require('./models/User');
     const Violation = require('./models/Violation');
-    const Report = require('./models/Report'); // from qr_scanner_db
-
-    // Create default users and sample data (only for main DB)
     await User.createDefaultUsers();
     await Violation.createSampleData();
-
-    console.log('Application initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize application:', error);
+    
+    // Initialize Google Drive service
+    const { service, success } = await initializeGoogleDrive();
+    if (success && process.env.GOOGLE_DRIVE_FOLDER_ID) {
+      service.setFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID);
+      console.log("Google Drive service initialized successfully");
+    } else {
+      console.log("Google Drive service not configured or initialization failed");
+    }
+    
+    console.log("Application initialized successfully");
+  } catch (err) {
+    console.error("Failed to initialize app:", err);
     process.exit(1);
   }
 }
@@ -58,79 +57,94 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
+// Serve static frontend
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes (main app + reports API)
+// Mount API routes **before** any wildcard frontend routes
 app.use('/api/auth', authRoutes);
 app.use('/api/violations', violationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/reports', reportRoutes); // connect reports endpoint
+app.use('/api/reports', reportRoutes);
 app.use('/api/superuser', superuserRoutes);
-console.log("✅ Superuser routes loaded");
 
+// Multer for uploads
+const upload = multer({ dest: 'uploads/' });
 
+// Upload violation image
+app.post('/api/security/violation', upload.single('image'), async (req, res) => {
+  try {
+    const { studentId, violationType } = req.body;
+    const filePath = req.file.path;
+    const fileExt = path.extname(req.file.originalname);
+    const fileName = req.file.filename + fileExt;
+    fs.renameSync(filePath, `uploads/${fileName}`);
+    const imageUrl = `/uploads/${fileName}`;
 
-// Socket.io for real-time features
+    const Violation = require('./models/Violation');
+    const violation = await Violation.create({
+      studentId,
+      violationType,
+      imageUrl,
+      timestamp: new Date(),
+      status: 'pending'
+    });
+
+    // Update latest image in dashboard
+    const dashboard = require('./routes/dashboard');
+    dashboard.setLatestViolationImage(imageUrl);
+
+    // Notify via socket.io
+    io.to('security').emit('new-violation', violation);
+    res.json({ success: true, violation });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to upload violation' });
+  }
+});
+
+// Fetch recent violations
+app.get('/api/security/violations/recent', async (req, res) => {
+  try {
+    const Violation = require('./models/Violation');
+    const recent = await Violation.find().sort({ timestamp: -1 }).limit(10);
+    res.json(recent);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch violations' });
+  }
+});
+
+// Socket.io
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
-  
-  socket.on('join-room', (role) => {
-    socket.join(role);
-    console.log(`User joined ${role} room`);
-  });
-  
-  socket.on('violation-detected', (data) => {
-    io.to('security').emit('new-violation', data);
-    console.log('Violation detected and broadcasted');
-  });
-  
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
+  socket.on('join-room', (role) => { socket.join(role); });
+  socket.on('violation-detected', (data) => { io.to('security').emit('new-violation', data); });
+  socket.on('violation-updated', (data) => { io.to('osa').emit('violation-updated', data); });
+  socket.on('disconnect', () => { console.log('User disconnected:', socket.id); });
 });
 
 // Serve frontend pages
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
+app.get('/signup', (req, res) => res.sendFile(path.join(__dirname, '../frontend/signup.html')));
+app.get('/osa/*', (req, res) => res.sendFile(path.join(__dirname, '../frontend/osa/dashboard.html')));
+app.get('/security/*', (req, res) => res.sendFile(path.join(__dirname, '../frontend/security/dashboard.html')));
 
-app.get('/signup', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/signup.html'));
-});
-
-app.get('/osa/*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/osa/dashboard.html'));
-});
-
-app.get('/security/*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/security/dashboard.html'));
-});
-
-// Start server after database initialization
+// Start server
 async function startServer() {
   await initializeApp();
-
-  server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Access the application at http://localhost:${PORT}`);
-    console.log(`Main DB connection: ${process.env.MONGODB_URI}`);
-    console.log(`QR Scanner DB connection: ${process.env.QR_SCANNER_URI}`);
-  });
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
-// Handle graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('\nShutting down gracefully...');
+  console.log('Shutting down gracefully...');
   const { disconnectDB } = require('./config/database');
   await disconnectDB();
   process.exit(0);
 });
 
-// Start the application
-startServer().catch(error => {
-  console.error('Failed to start server:', error);
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
   process.exit(1);
 });
 

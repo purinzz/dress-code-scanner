@@ -31,6 +31,14 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  verifiedAt: {
+    type: Date,
+    default: null
+  },
   lastLogin: {
     type: Date
   }
@@ -59,41 +67,51 @@ userSchema.statics.createDefaultUsers = async function () {
   try {
     const count = await this.countDocuments();
     if (count === 0) {
-      const defaultPassword = await bcrypt.hash('password123', 10); // ✅ default password
+      // Strong default passwords meeting complexity requirements
+      const defaultPassword = await bcrypt.hash('SuperAdmin@2025', 10);
 
       const defaultUsers = [
         {
           username: 'super_admin',
           email: 'super@school.local',
           password: defaultPassword,
-          role: 'superuser'
+          role: 'superuser',
+          emailVerified: true,
+          verifiedAt: new Date()
         },
         {
           username: 'osa_admin',
           email: 'osa@school.edu',
           password: defaultPassword,
-          role: 'osa'
+          role: 'osa',
+          emailVerified: true,
+          verifiedAt: new Date()
         },
         {
           username: 'security_guard',
           email: 'security@school.edu',
           password: defaultPassword,
-          role: 'security'
+          role: 'security',
+          emailVerified: true,
+          verifiedAt: new Date()
         }
       ];
 
       await this.insertMany(defaultUsers);
       console.log('✅ Default users (including superuser) created successfully');
+      console.log('   📝 Default Password: SuperAdmin@2025');
     } else {
       // Ensure superuser exists even if others were created earlier
       const superExists = await this.findOne({ role: 'superuser' });
       if (!superExists) {
-        const superPass = await bcrypt.hash('password123', 10);
+        const superPass = await bcrypt.hash('SuperAdmin@2025', 10);
         await this.create({
           username: 'super_admin',
           email: 'super@school.local',
           password: superPass,
-          role: 'superuser'
+          role: 'superuser',
+          emailVerified: true,
+          verifiedAt: new Date()
         });
         console.log('✅ Superuser account created successfully');
       }

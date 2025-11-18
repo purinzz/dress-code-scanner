@@ -141,17 +141,15 @@ violationSchema.statics.getStats = async function() {
     const total = await this.countDocuments();
     const resolved = await this.countDocuments({ status: 'resolved' });
     const pending = await this.countDocuments({ status: 'pending' });
-    const notResolved = await this.countDocuments({ status: 'not yet resolved' });
 
     return {
       total,
       resolved,
       pending,
-      notResolved
     };
   } catch (error) {
     console.error('Error getting violation stats:', error);
-    return { total: 0, resolved: 0, pending: 0, notResolved: 0 };
+    return { total: 0, resolved: 0, pending: 0};
   }
 };
 
